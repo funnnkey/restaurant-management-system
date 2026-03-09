@@ -20,6 +20,8 @@ const restaurantSchema = new mongoose.Schema({
   taxRate: {
     type: Number,
     default: 18, // GST 18%
+    min: [0, 'Tax rate cannot be negative'],
+    max: [100, 'Tax rate cannot exceed 100'],
   },
   currency: {
     type: String,

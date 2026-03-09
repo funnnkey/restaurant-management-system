@@ -58,6 +58,11 @@ router.get('/:id', protect, async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
+
+    // Check authorization - user must be superadmin or own this restaurant
+    if (req.user.role !== 'superadmin' && order.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view this order' });
+    }
     
     res.json(order);
   } catch (error) {
@@ -73,10 +78,6 @@ router.post('/', protect, async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
     
-    // Get restaurant tax rate
-    const restaurant = await Restaurant.findById(restaurantId);
-    const taxRate = restaurant?.taxRate || 18;
-
     const { 
       orderType, 
       items, 
@@ -88,6 +89,36 @@ router.post('/', protect, async (req, res) => {
       discount,
       discountType 
     } = req.body;
+
+    // Validate inputs
+    if (!orderType || !['dine_in', 'take_away', 'delivery'].includes(orderType)) {
+      return res.status(400).json({ message: 'Invalid order type' });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Items array is required and cannot be empty' });
+    }
+
+    for (const item of items) {
+      if (!item.menuItemId || !item.name || !item.quantity || item.price === undefined) {
+        return res.status(400).json({ message: 'Missing required item fields' });
+      }
+      if (item.quantity <= 0 || item.price < 0) {
+        return res.status(400).json({ message: 'Invalid quantity or price' });
+      }
+    }
+
+    if (discount !== undefined && discount < 0) {
+      return res.status(400).json({ message: 'Discount cannot be negative' });
+    }
+
+    if (discountType && !['percentage', 'fixed'].includes(discountType)) {
+      return res.status(400).json({ message: 'Invalid discount type' });
+    }
+
+    // Get restaurant tax rate
+    const restaurant = await Restaurant.findById(restaurantId);
+    const taxRate = restaurant?.taxRate || 18;
 
     // Calculate order totals
     let subtotal = 0;
@@ -105,10 +136,16 @@ router.post('/', protect, async (req, res) => {
 
     // Calculate discount
     let discountAmount = 0;
-    if (discount) {
+    if (discount && discount > 0) {
       if (discountType === 'percentage') {
+        if (discount > 100) {
+          return res.status(400).json({ message: 'Discount percentage cannot exceed 100' });
+        }
         discountAmount = (subtotal * discount) / 100;
       } else {
+        if (discount > subtotal) {
+          return res.status(400).json({ message: 'Fixed discount cannot exceed subtotal' });
+        }
         discountAmount = discount;
       }
     }
@@ -155,6 +192,11 @@ router.put('/:id', protect, async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check authorization
+    if (req.user.role !== 'superadmin' && order.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this order' });
     }
 
     // If order has a bill, don't allow editing
@@ -279,6 +321,11 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Check authorization
+    if (req.user.role !== 'superadmin' && order.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this order' });
+    }
+
     // If order has a bill, don't allow cancellation
     if (order.billId) {
       return res.status(400).json({ message: 'Cannot cancel order with existing bill' });
@@ -289,51 +336,6 @@ router.delete('/:id', protect, async (req, res) => {
     await order.save();
 
     res.json({ message: 'Order cancelled', order });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/orders/stats/today
-// @desc    Get today's order statistics
-// @access  Private
-router.get('/stats/today', protect, async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const orders = await Order.find({
-      restaurantId,
-      createdAt: { $gte: today },
-    });
-
-    const totalOrders = orders.length;
-    const totalRevenue = orders
-      .filter(o => o.paymentStatus === 'paid')
-      .reduce((sum, o) => sum + o.total, 0);
-    
-    const pendingOrders = orders.filter(o => o.status === 'pending').length;
-    const preparingOrders = orders.filter(o => o.status === 'preparing').length;
-    const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
-    const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
-
-    const byType = {
-      dine_in: orders.filter(o => o.orderType === 'dine_in').length,
-      take_away: orders.filter(o => o.orderType === 'take_away').length,
-      delivery: orders.filter(o => o.orderType === 'delivery').length,
-    };
-
-    res.json({
-      totalOrders,
-      totalRevenue,
-      pendingOrders,
-      preparingOrders,
-      deliveredOrders,
-      cancelledOrders,
-      byType,
-    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

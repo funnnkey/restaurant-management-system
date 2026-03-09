@@ -8,6 +8,11 @@ import Menu from './pages/Menu';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import DashboardSuperAdmin from './pages/SuperAdmin/DashboardSuperAdmin';
+import Restaurants from './pages/SuperAdmin/Restaurants';
+import Users from './pages/SuperAdmin/Users';
+import ReportsSuperAdmin from './pages/SuperAdmin/Reports';
+import SettingsSuperAdmin from './pages/SuperAdmin/Settings';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -127,7 +132,15 @@ function AppRoutes() {
         path="/superadmin"
         element={
           <ProtectedRoute allowedRoles={['superadmin']}>
-            <Dashboard />
+            <DashboardSuperAdmin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/superadmin/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <DashboardSuperAdmin />
           </ProtectedRoute>
         }
       />
@@ -135,7 +148,31 @@ function AppRoutes() {
         path="/superadmin/restaurants"
         element={
           <ProtectedRoute allowedRoles={['superadmin']}>
-            <Dashboard />
+            <Restaurants />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/superadmin/users"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <Users />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/superadmin/reports"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <ReportsSuperAdmin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/superadmin/settings"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <SettingsSuperAdmin />
           </ProtectedRoute>
         }
       />

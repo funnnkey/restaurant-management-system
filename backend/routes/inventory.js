@@ -79,6 +79,27 @@ router.post('/', protect, admin, async (req, res) => {
 
     const { name, quantity, unit, alertThreshold, category, purchasePrice, isActive } = req.body;
 
+    // Validate inputs
+    if (!name) {
+      return res.status(400).json({ message: 'Item name is required' });
+    }
+
+    if (!unit || !['kg', 'g', 'l', 'ml', 'pcs', 'pack', 'dozen'].includes(unit)) {
+      return res.status(400).json({ message: 'Invalid unit' });
+    }
+
+    if (quantity !== undefined && (quantity < 0 || !Number.isInteger(quantity))) {
+      return res.status(400).json({ message: 'Invalid quantity' });
+    }
+
+    if (alertThreshold !== undefined && (alertThreshold < 0 || !Number.isInteger(alertThreshold))) {
+      return res.status(400).json({ message: 'Invalid alert threshold' });
+    }
+
+    if (purchasePrice !== undefined && purchasePrice < 0) {
+      return res.status(400).json({ message: 'Invalid purchase price' });
+    }
+
     const item = await Inventory.create({
       restaurantId,
       name,
@@ -126,7 +147,20 @@ router.put('/:id', protect, admin, async (req, res) => {
 // @access  Private/Admin
 router.put('/:id/adjust', protect, admin, async (req, res) => {
   try {
-    const { adjustment, operation } = req.body; // operation: 'add' or 'subtract'
+    const { adjustment, operation } = req.body;
+
+    // Validate inputs
+    if (adjustment === undefined) {
+      return res.status(400).json({ message: 'Adjustment value is required' });
+    }
+
+    if (adjustment < 0 || !Number.isInteger(adjustment)) {
+      return res.status(400).json({ message: 'Adjustment must be a non-negative integer' });
+    }
+
+    if (!operation || !['add', 'subtract'].includes(operation)) {
+      return res.status(400).json({ message: 'Operation must be "add" or "subtract"' });
+    }
 
     const item = await Inventory.findById(req.params.id);
 
@@ -137,9 +171,10 @@ router.put('/:id/adjust', protect, admin, async (req, res) => {
     if (operation === 'add') {
       item.quantity += adjustment;
     } else if (operation === 'subtract') {
-      item.quantity = Math.max(0, item.quantity - adjustment);
-    } else {
-      item.quantity = adjustment;
+      if (adjustment > item.quantity) {
+        return res.status(400).json({ message: 'Cannot subtract more than available quantity' });
+      }
+      item.quantity -= adjustment;
     }
 
     await item.save();

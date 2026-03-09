@@ -35,6 +35,9 @@ const Layout = ({ children }) => {
   const superadminMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/superadmin' },
     { icon: Utensils, label: 'Restaurants', path: '/superadmin/restaurants' },
+    { icon: ShoppingBag, label: 'Users', path: '/superadmin/users' },
+    { icon: BarChart3, label: 'Reports', path: '/superadmin/reports' },
+    { icon: Settings, label: 'Settings', path: '/superadmin/settings' },
   ];
 
   const menuItems = user?.role === 'superadmin' ? superadminMenuItems : adminMenuItems;
@@ -59,7 +62,7 @@ const Layout = ({ children }) => {
               <ChefHat className="w-5 h-5 text-white" />
             </div>
             {sidebarOpen && (
-              <span className="font-bold text-lg">Aapki Rasoi</span>
+              <span className="font-bold text-lg">{user?.role === 'superadmin' ? 'RMS' : user?.restaurant?.name || 'Admin'}</span>
             )}
           </div>
           <button

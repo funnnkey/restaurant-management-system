@@ -126,25 +126,6 @@ router.get('/items', protect, async (req, res) => {
   }
 });
 
-// @route   GET /api/menu/items/:id
-// @desc    Get single menu item
-// @access  Private
-router.get('/items/:id', protect, async (req, res) => {
-  try {
-    const item = await MenuItem.findById(req.params.id)
-      .populate('categoryId', 'name');
-    
-    if (!item) {
-      return res.status(404).json({ message: 'Item not found' });
-    }
-    
-    res.json(item);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // @route   POST /api/menu/items
 // @desc    Create a menu item
 // @access  Private/Admin
@@ -155,6 +136,15 @@ router.post('/items', protect, admin, async (req, res) => {
       : req.user.restaurantId;
 
     const { name, description, price, image, categoryId, isAvailable, preparationTime } = req.body;
+
+    // Validate inputs
+    if (!name || !categoryId || price === undefined) {
+      return res.status(400).json({ message: 'Name, category ID, and price are required' });
+    }
+
+    if (price < 0) {
+      return res.status(400).json({ message: 'Price cannot be negative' });
+    }
 
     const item = await MenuItem.create({
       restaurantId,
@@ -175,6 +165,46 @@ router.post('/items', protect, admin, async (req, res) => {
   }
 });
 
+// @route   PUT /api/menu/items/:id/availability
+// @desc    Toggle item availability
+// @access  Private/Admin
+router.put('/items/:id/availability', protect, admin, async (req, res) => {
+  try {
+    const item = await MenuItem.findById(req.params.id);
+
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    item.isAvailable = !item.isAvailable;
+    await item.save();
+
+    res.json(item);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/menu/items/:id
+// @desc    Get single menu item
+// @access  Private
+router.get('/items/:id', protect, async (req, res) => {
+  try {
+    const item = await MenuItem.findById(req.params.id)
+      .populate('categoryId', 'name');
+    
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    
+    res.json(item);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   PUT /api/menu/items/:id
 // @desc    Update a menu item
 // @access  Private/Admin
@@ -184,6 +214,11 @@ router.put('/items/:id', protect, admin, async (req, res) => {
 
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
+    }
+
+    // Validate inputs
+    if (req.body.price !== undefined && req.body.price < 0) {
+      return res.status(400).json({ message: 'Price cannot be negative' });
     }
 
     const updatedItem = await MenuItem.findByIdAndUpdate(
@@ -212,27 +247,6 @@ router.delete('/items/:id', protect, admin, async (req, res) => {
 
     await item.deleteOne();
     res.json({ message: 'Item removed' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   PUT /api/menu/items/:id/availability
-// @desc    Toggle item availability
-// @access  Private/Admin
-router.put('/items/:id/availability', protect, admin, async (req, res) => {
-  try {
-    const item = await MenuItem.findById(req.params.id);
-
-    if (!item) {
-      return res.status(404).json({ message: 'Item not found' });
-    }
-
-    item.isAvailable = !item.isAvailable;
-    await item.save();
-
-    res.json(item);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

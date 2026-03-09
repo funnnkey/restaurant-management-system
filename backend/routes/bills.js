@@ -31,10 +31,24 @@ router.get('/', protect, async (req, res) => {
 
     if (startDate || endDate) {
       query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+      if (startDate) {
+        const start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+          return res.status(400).json({ message: 'Invalid startDate format' });
+        }
+        query.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        if (isNaN(end.getTime())) {
+          return res.status(400).json({ message: 'Invalid endDate format' });
+        }
+        query.createdAt.$lte = end;
+      }
     }
-    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (paymentStatus && ['paid', 'pending', 'refunded'].includes(paymentStatus)) {
+      query.paymentStatus = paymentStatus;
+    }
 
     const bills = await Bill.find(query)
       .populate('orderId', 'orderType tableNumber customerName')
@@ -56,6 +70,24 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/bills/order/:orderId
+// @desc    Get bill by order ID
+// @access  Private
+router.get('/order/:orderId', protect, async (req, res) => {
+  try {
+    const bill = await Bill.findOne({ orderId: req.params.orderId });
+    
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    res.json(bill);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/bills/:id
 // @desc    Get single bill
 // @access  Private
@@ -66,6 +98,11 @@ router.get('/:id', protect, async (req, res) => {
     
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
+    }
+
+    // Check authorization
+    if (req.user.role !== 'superadmin' && bill.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view this bill' });
     }
     
     res.json(bill);
@@ -82,6 +119,23 @@ router.post('/', protect, async (req, res) => {
   try {
     const restaurantId = getRestaurantId(req);
     const { orderId, items, discount, discountType, paymentMethod, splitDetails } = req.body;
+
+    // Validate inputs
+    if (!orderId) {
+      return res.status(400).json({ message: 'Order ID is required' });
+    }
+
+    if (paymentMethod && !['cash', 'card', 'upi', 'wallet', 'check'].includes(paymentMethod)) {
+      return res.status(400).json({ message: 'Invalid payment method' });
+    }
+
+    if (discount !== undefined && discount < 0) {
+      return res.status(400).json({ message: 'Discount cannot be negative' });
+    }
+
+    if (discountType && !['percentage', 'fixed'].includes(discountType)) {
+      return res.status(400).json({ message: 'Invalid discount type' });
+    }
 
     // Get order
     const order = await Order.findById(orderId);
@@ -105,12 +159,18 @@ router.post('/', protect, async (req, res) => {
     // Calculate discount
     let discountAmount = 0;
     const finalDiscountType = discountType || order.discountType || 'percentage';
-    const finalDiscount = discount || 0;
+    const finalDiscount = discount !== undefined ? discount : (order.discount || 0);
 
     if (finalDiscount > 0) {
       if (finalDiscountType === 'percentage') {
+        if (finalDiscount > 100) {
+          return res.status(400).json({ message: 'Discount percentage cannot exceed 100' });
+        }
         discountAmount = (subtotal * finalDiscount) / 100;
       } else {
+        if (finalDiscount > subtotal) {
+          return res.status(400).json({ message: 'Fixed discount cannot exceed subtotal' });
+        }
         discountAmount = finalDiscount;
       }
     }
@@ -164,6 +224,11 @@ router.put('/:id', protect, async (req, res) => {
 
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
+    }
+
+    // Check authorization
+    if (req.user.role !== 'superadmin' && bill.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this bill' });
     }
 
     const { items, discount, discountType, paymentMethod, splitDetails } = req.body;
@@ -232,6 +297,11 @@ router.delete('/:id', protect, admin, async (req, res) => {
       return res.status(404).json({ message: 'Bill not found' });
     }
 
+    // Check authorization
+    if (req.user.role !== 'superadmin' && bill.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to refund this bill' });
+    }
+
     bill.paymentStatus = 'refunded';
     await bill.save();
 
@@ -244,24 +314,6 @@ router.delete('/:id', protect, admin, async (req, res) => {
     }
 
     res.json({ message: 'Bill refunded', bill });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/bills/order/:orderId
-// @desc    Get bill by order ID
-// @access  Private
-router.get('/order/:orderId', protect, async (req, res) => {
-  try {
-    const bill = await Bill.findOne({ orderId: req.params.orderId });
-    
-    if (!bill) {
-      return res.status(404).json({ message: 'Bill not found' });
-    }
-    
-    res.json(bill);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

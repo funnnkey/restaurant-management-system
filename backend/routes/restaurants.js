@@ -17,6 +17,19 @@ router.get('/', protect, superadmin, async (req, res) => {
   }
 });
 
+// @route   GET /api/restaurants/:id/users
+// @desc    Get restaurant users
+// @access  Private/Admin
+router.get('/:id/users', protect, admin, async (req, res) => {
+  try {
+    const users = await User.find({ restaurantId: req.params.id }).select('-password');
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/restaurants/:id
 // @desc    Get restaurant by ID
 // @access  Private/Admin
@@ -68,8 +81,10 @@ router.put('/:id', protect, admin, async (req, res) => {
     }
 
     // Check if user owns this restaurant
-    if (req.user.role !== 'superadmin' && req.user.restaurantId.toString() !== req.params.id) {
-      return res.status(403).json({ message: 'Not authorized' });
+    if (req.user.role !== 'superadmin') {
+      if (!req.user.restaurantId || req.user.restaurantId.toString() !== req.params.id) {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
     }
 
     const updatedRestaurant = await Restaurant.findByIdAndUpdate(
@@ -98,19 +113,6 @@ router.delete('/:id', protect, superadmin, async (req, res) => {
 
     await restaurant.deleteOne();
     res.json({ message: 'Restaurant removed' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   GET /api/restaurants/:id/users
-// @desc    Get restaurant users
-// @access  Private/Admin
-router.get('/:id/users', protect, admin, async (req, res) => {
-  try {
-    const users = await User.find({ restaurantId: req.params.id }).select('-password');
-    res.json(users);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

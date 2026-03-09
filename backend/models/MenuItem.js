@@ -21,6 +21,7 @@ const menuItemSchema = new mongoose.Schema({
   price: {
     type: Number,
     required: true,
+    min: [0.01, 'Price must be greater than zero'],
   },
   image: {
     type: String,

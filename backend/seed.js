@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 const User = require('./models/User');
 const Restaurant = require('./models/Restaurant');
 const MenuCategory = require('./models/MenuCategory');
@@ -32,13 +31,10 @@ const seedData = async () => {
     });
     console.log('Created restaurant');
 
-    // Create admin user
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('demo123', salt);
-    
+    // Create admin user (plain password - will be hashed by User model pre-save hook)
     const adminUser = await User.create({
       email: 'admin@demo.com',
-      password: hashedPassword,
+      password: 'demo123',
       name: 'Admin',
       role: 'admin',
       restaurantId: restaurant._id,
@@ -46,10 +42,10 @@ const seedData = async () => {
     });
     console.log('Created admin user: admin@demo.com / demo123');
 
-    // Create superadmin user
+    // Create superadmin user (plain password - will be hashed by User model pre-save hook)
     const superAdminUser = await User.create({
       email: 'superadmin@aapkirasoi.com',
-      password: hashedPassword,
+      password: 'demo123',
       name: 'Super Admin',
       role: 'superadmin',
       phone: '+91 9876543210',

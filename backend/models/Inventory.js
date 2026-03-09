@@ -14,6 +14,7 @@ const inventorySchema = new mongoose.Schema({
     type: Number,
     required: true,
     default: 0,
+    min: [0, 'Quantity cannot be negative'],
   },
   unit: {
     type: String,
@@ -23,6 +24,7 @@ const inventorySchema = new mongoose.Schema({
   alertThreshold: {
     type: Number,
     default: 10,
+    min: [0, 'Alert threshold cannot be negative'],
   },
   category: {
     type: String,

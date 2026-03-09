@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
-const { protect } = require('../middleware/auth');
+const { protect, superadmin } = require('../middleware/auth');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'aapkirasoi2024', {
@@ -13,10 +13,24 @@ const generateToken = (id) => {
 
 // @route   POST /api/auth/register
 // @desc    Register a new restaurant and admin
-// @access  Public (for initial setup)
-router.post('/register', async (req, res) => {
+// @access  Private/Superadmin
+router.post('/register', protect, superadmin, async (req, res) => {
   try {
     const { email, password, name, restaurantName, phone, address } = req.body;
+
+    // Validate inputs
+    if (!email || !password || !name) {
+      return res.status(400).json({ message: 'Email, password, and name are required' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
 
     // Check if user exists
     const userExists = await User.findOne({ email });
