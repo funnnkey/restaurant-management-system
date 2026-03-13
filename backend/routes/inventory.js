@@ -50,6 +50,42 @@ router.get('/low-stock', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/inventory/stats/summary
+// @desc    Get inventory statistics
+// @access  Private
+router.get('/stats/summary', protect, async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+
+    const totalItems = await Inventory.countDocuments({ restaurantId, isActive: true });
+    
+    const lowStockItems = await Inventory.countDocuments({
+      restaurantId,
+      isActive: true,
+      $expr: { $lte: ['$quantity', '$alertThreshold'] }
+    });
+
+    const outOfStock = await Inventory.countDocuments({
+      restaurantId,
+      isActive: true,
+      quantity: 0
+    });
+
+    const items = await Inventory.find({ restaurantId, isActive: true });
+    const totalValue = items.reduce((sum, item) => sum + (item.quantity * item.purchasePrice), 0);
+
+    res.json({
+      totalItems,
+      lowStockItems,
+      outOfStock,
+      totalValue,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/inventory/:id
 // @desc    Get single inventory item
 // @access  Private
@@ -204,40 +240,5 @@ router.delete('/:id', protect, admin, async (req, res) => {
   }
 });
 
-// @route   GET /api/inventory/stats
-// @desc    Get inventory statistics
-// @access  Private
-router.get('/stats/summary', protect, async (req, res) => {
-  try {
-    const restaurantId = getRestaurantId(req);
-
-    const totalItems = await Inventory.countDocuments({ restaurantId, isActive: true });
-    
-    const lowStockItems = await Inventory.countDocuments({
-      restaurantId,
-      isActive: true,
-      $expr: { $lte: ['$quantity', '$alertThreshold'] }
-    });
-
-    const outOfStock = await Inventory.countDocuments({
-      restaurantId,
-      isActive: true,
-      quantity: 0
-    });
-
-    const items = await Inventory.find({ restaurantId, isActive: true });
-    const totalValue = items.reduce((sum, item) => sum + (item.quantity * item.purchasePrice), 0);
-
-    res.json({
-      totalItems,
-      lowStockItems,
-      outOfStock,
-      totalValue,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
 module.exports = router;
+

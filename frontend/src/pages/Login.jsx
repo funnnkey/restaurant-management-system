@@ -26,7 +26,9 @@ const Login = () => {
         navigate('/admin');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      console.error('Login error:', err);
+      const message = err?.response?.data?.message || err?.message || 'Login failed. Please try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }

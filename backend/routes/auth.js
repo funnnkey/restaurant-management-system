@@ -77,6 +77,32 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Demo mode - use mock data
+    if (global.demoMode) {
+      const mockData = require('../mockData');
+      const user = mockData.users.find(u => u.email === email);
+      
+      if (user) {
+        let restaurant = null;
+        if (user.restaurantId) {
+          restaurant = mockData.restaurants.find(r => r._id === user.restaurantId);
+        }
+
+        return res.json({
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          restaurantId: user.restaurantId,
+          restaurant: restaurant,
+          token: generateToken(user._id),
+        });
+      } else {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+    }
+
+    // Normal mode - use MongoDB
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
@@ -108,6 +134,31 @@ router.post('/login', async (req, res) => {
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
+    // Demo mode - use mock data
+    if (global.demoMode) {
+      const mockData = require('../mockData');
+      const user = mockData.users.find(u => u._id === req.user._id);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      let restaurant = null;
+      if (user.restaurantId) {
+        restaurant = mockData.restaurants.find(r => r._id === user.restaurantId);
+      }
+
+      return res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        restaurantId: user.restaurantId,
+        restaurant: restaurant,
+      });
+    }
+
+    // Normal mode - use MongoDB
     const user = await User.findById(req.user._id).select('-password');
     let restaurant = null;
     if (user.restaurantId) {

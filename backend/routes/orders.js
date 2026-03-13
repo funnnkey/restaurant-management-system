@@ -48,6 +48,47 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/orders/stats/today
+// @desc    Get today's order statistics
+// @access  Private
+router.get('/stats/today', protect, async (req, res) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const orders = await Order.find({
+      restaurantId,
+      createdAt: { $gte: today, $lt: tomorrow },
+    });
+
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const totalTax = orders.reduce((sum, o) => sum + o.tax, 0);
+    const totalDiscount = orders.reduce((sum, o) => sum + o.discount, 0);
+    
+    const pendingOrders = orders.filter(o => o.status === 'pending').length;
+    const readyOrders = orders.filter(o => o.status === 'ready').length;
+    const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
+
+    res.json({
+      totalOrders,
+      totalRevenue,
+      totalTax,
+      totalDiscount,
+      averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+      pendingOrders,
+      readyOrders,
+      deliveredOrders,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/orders/:id
 // @desc    Get single order
 // @access  Private

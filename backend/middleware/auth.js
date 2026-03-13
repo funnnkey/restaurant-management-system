@@ -8,6 +8,20 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'aapkirasoi2024');
+      
+      // Demo mode - use mock data
+      if (global.demoMode) {
+        const mockData = require('../mockData');
+        req.user = mockData.users.find(u => u._id === decoded.id);
+        
+        if (!req.user) {
+          return res.status(401).json({ message: 'User not found' });
+        }
+        
+        return next();
+      }
+
+      // Normal mode - use MongoDB
       req.user = await User.findById(decoded.id).select('-password');
       
       if (!req.user) {

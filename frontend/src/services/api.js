@@ -72,7 +72,7 @@ export const ordersAPI = {
 export const billsAPI = {
   getAll: (params) => api.get('/bills', { params }),
   getById: (id) => api.get(`/bills/${id}`),
-  create: (data) => api.post('/bills', data),
+  generate: (data) => api.post('/bills/generate', data),
   update: (id, data) => api.put(`/bills/${id}`, data),
   getByOrder: (orderId) => api.get(`/bills/order/${orderId}`),
 };

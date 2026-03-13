@@ -6,18 +6,29 @@ const connectDB = require('./config/db');
 // Load env vars
 dotenv.config();
 
-// Connect to database
-connectDB();
-
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3002'],
   credentials: true,
 }));
 app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ limit: '10kb' }));
+app.use(express.urlencoded({ limit: '10kb', extended: true }));
+
+// Initialize demo mode as false
+global.demoMode = false;
+
+// Connect to database and set demo mode if needed
+(async () => {
+  const connected = await connectDB();
+  if (!connected) {
+    global.demoMode = true;
+    console.log('⚠️  Using DEMO MODE - Mock data enabled');
+  } else {
+    console.log('✅ MongoDB connected - Production mode');
+  }
+})();
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -30,7 +41,11 @@ app.use('/api/reports', require('./routes/reports'));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Aapki Rasoi API is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Aapki Rasoi API is running',
+    demoMode: global.demoMode 
+  });
 });
 
 // 404 handler
